@@ -47,6 +47,26 @@ async def create_customer(customer: dict):
     customers_db.append(customer)
     return customer
 
+@app.put("/api/customers/{customer_id}")
+async def update_customer(customer_id: str, customer: dict):
+    for i, c in enumerate(customers_db):
+        if c["id"] == customer_id:
+            # Manter o ID original e atualizar o resto
+            customer["id"] = customer_id
+            customers_db[i] = customer
+            return customer
+    return {"error": "Cliente não encontrado"}, 404
+
+
+@app.delete("/api/customers/{customer_id}")
+async def delete_customer(customer_id: str):
+    for i, c in enumerate(customers_db):
+        if c["id"] == customer_id:
+            deleted = customers_db.pop(i)
+            return {"message": "Cliente deletado", "customer": deleted}
+    return {"error": "Cliente não encontrado"}, 404
+
+
 @app.get("/api/budgets")
 async def list_budgets():
     return budgets_db
@@ -56,3 +76,4 @@ async def create_budget(budget: dict):
     budget["id"] = str(len(budgets_db) + 1)
     budgets_db.append(budget)
     return budget
+

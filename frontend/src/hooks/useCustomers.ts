@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API_URL = 'http://localhost:8000/api/customers';
+
 interface Customer {
   id: string;
   name: string;
@@ -9,41 +11,87 @@ interface Customer {
 
 export function useCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Buscar clientes
   const fetchCustomers = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const response = await fetch('http://localhost:8000/api/customers');
-      if (!response.ok) throw new Error('Erro ao buscar clientes');
+      const response = await fetch(API_URL);
       const data = await response.json();
       setCustomers(data);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      setError('Erro ao carregar clientes');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const createCustomer = async (name: string, email?: string) => {
+  // Criar cliente
+  const createCustomer = async (customer: Omit<Customer, 'id'>) => {
     try {
-      const response = await fetch('http://localhost:8000/api/customers', {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify(customer),
       });
-      if (!response.ok) throw new Error('Erro ao criar cliente');
-      await fetchCustomers(); // Recarrega lista
+      const newCustomer = await response.json();
+      setCustomers([...customers, newCustomer]);
+      return newCustomer;
     } catch (err) {
+      setError('Erro ao criar cliente');
+      console.error(err);
       throw err;
     }
   };
 
+  // Editar cliente
+  const updateCustomer = async (id: string, customer: Omit<Customer, 'id'>) => {
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customer),
+      });
+      const updatedCustomer = await response.json();
+      setCustomers(customers.map(c => c.id === id ? updatedCustomer : c));
+      return updatedCustomer;
+    } catch (err) {
+      setError('Erro ao editar cliente');
+      console.error(err);
+      throw err;
+    }
+  };
+
+  // Deletar cliente
+  const deleteCustomer = async (id: string) => {
+    try {
+      await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE',
+      });
+      setCustomers(customers.filter(c => c.id !== id));
+    } catch (err) {
+      setError('Erro ao deletar cliente');
+      console.error(err);
+      throw err;
+    }
+  };
+
+  // Carregar clientes na montagem
   useEffect(() => {
     fetchCustomers();
   }, []);
 
-  return { customers, loading, error, refetch: fetchCustomers, createCustomer };
+  return {
+    customers,
+    loading,
+    error,
+    fetchCustomers,
+    createCustomer,
+    updateCustomer,
+    deleteCustomer,
+  };
 }

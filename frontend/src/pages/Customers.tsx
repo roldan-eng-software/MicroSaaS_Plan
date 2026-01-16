@@ -2,122 +2,156 @@ import { useState } from 'react';
 import { useCustomers } from '../hooks/useCustomers';
 
 export default function Customers() {
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerEmail, setNewCustomerEmail] = useState('');
-  const { customers, loading, error, refetch, createCustomer } = useCustomers();
+  const { customers, loading, error, createCustomer, updateCustomer, deleteCustomer } = useCustomers();
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleCreate = async () => {
-    if (!newCustomerName.trim()) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      alert('Nome é obrigatório');
+      return;
+    }
+
     try {
-      await createCustomer(newCustomerName.trim(), newCustomerEmail.trim() || undefined);
-      setNewCustomerName('');
-      setNewCustomerEmail('');
+      if (editingId) {
+        // Modo edição
+        await updateCustomer(editingId, formData);
+        setEditingId(null);
+      } else {
+        // Modo criação
+        await createCustomer(formData);
+      }
+      setFormData({ name: '', email: '', phone: '' });
     } catch (err) {
-      alert('Erro ao criar cliente');
+      alert('Erro ao salvar cliente');
     }
   };
 
+  const handleEdit = (customer: any) => {
+    setFormData({
+      name: customer.name,
+      email: customer.email || '',
+      phone: customer.phone || '',
+    });
+    setEditingId(customer.id);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja deletar este cliente?')) {
+      try {
+        await deleteCustomer(id);
+      } catch (err) {
+        alert('Erro ao deletar cliente');
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setFormData({ name: '', email: '', phone: '' });
+    setEditingId(null);
+  };
+
+  if (loading) return <div className="p-6">Carregando...</div>;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">👥 Clientes</h1>
-        <p className="text-slate-600">Gerencie seus clientes e contatos</p>
-      </div>
+    <div className="p-6 space-y-6">
+      <h1 className="text-3xl font-bold">Clientes</h1>
 
-      {/* Form Novo Cliente */}
-      <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-200">
-        <h2 className="text-xl font-semibold text-slate-900 mb-6">➕ Novo Cliente</h2>
-        <div className="grid md:grid-cols-3 gap-4">
-          <input
-            type="text"
-            placeholder="Nome do cliente"
-            value={newCustomerName}
-            onChange={(e) => setNewCustomerName(e.target.value)}
-            className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-          />
-          <input
-            type="email"
-            placeholder="email@exemplo.com (opcional)"
-            value={newCustomerEmail}
-            onChange={(e) => setNewCustomerEmail(e.target.value)}
-            className="px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-          />
+      {error && <div className="bg-red-100 text-red-700 p-4 rounded">{error}</div>}
+
+      {/* Formulário */}
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow space-y-4">
+        <h2 className="text-xl font-semibold">
+          {editingId ? 'Editar Cliente' : 'Novo Cliente'}
+        </h2>
+
+        <input
+          type="text"
+          placeholder="Nome"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className="w-full px-4 py-2 border rounded"
+        />
+
+        <input
+          type="email"
+          placeholder="Email (opcional)"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          className="w-full px-4 py-2 border rounded"
+        />
+
+        <input
+          type="tel"
+          placeholder="Telefone (opcional)"
+          value={formData.phone}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          className="w-full px-4 py-2 border rounded"
+        />
+
+        <div className="flex gap-2">
           <button
-            onClick={handleCreate}
-            disabled={!newCustomerName.trim()}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+            type="submit"
+            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
-            ➕ Criar Cliente
+            {editingId ? 'Atualizar' : 'Criar'}
           </button>
-        </div>
-      </div>
-
-      {/* Lista de Clientes */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-900">📋 Clientes Cadastrados</h2>
+          {editingId && (
             <button
-              onClick={refetch}
-              disabled={loading}
-              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition flex items-center gap-2 text-sm"
+              type="button"
+              onClick={handleCancel}
+              className="flex-1 bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
             >
-              {loading ? '🔄 Carregando...' : '🔄 Atualizar'}
+              Cancelar
             </button>
-          </div>
+          )}
         </div>
+      </form>
 
-        {error && (
-          <div className="p-6 bg-red-50 border-t border-red-200">
-            <p className="text-red-800 text-sm">❌ {error}</p>
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
+      {/* Tabela */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-6 py-3 text-left font-semibold">Nome</th>
+              <th className="px-6 py-3 text-left font-semibold">Email</th>
+              <th className="px-6 py-3 text-left font-semibold">Telefone</th>
+              <th className="px-6 py-3 text-center font-semibold">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customers.length === 0 ? (
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Nome</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">Ações</th>
+                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                  Nenhum cliente cadastrado
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                    🔄 Carregando clientes...
+            ) : (
+              customers.map((customer) => (
+                <tr key={customer.id} className="border-t hover:bg-gray-50">
+                  <td className="px-6 py-4">{customer.name}</td>
+                  <td className="px-6 py-4">{customer.email || '-'}</td>
+                  <td className="px-6 py-4">{customer.phone || '-'}</td>
+                  <td className="px-6 py-4 flex justify-center gap-2">
+                    <button
+                      onClick={() => handleEdit(customer)}
+                      className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(customer.id)}
+                      className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                    >
+                      Deletar
+                    </button>
                   </td>
                 </tr>
-              ) : customers.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                    📭 Nenhum cliente cadastrado
-                  </td>
-                </tr>
-              ) : (
-                customers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-slate-50 transition">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-500">
-                      {customer.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-900">{customer.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-600">{customer.email || '—'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-blue-600 hover:text-blue-900 mr-3">Editar</button>
-                      <button className="text-red-600 hover:text-red-900">Deletar</button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
