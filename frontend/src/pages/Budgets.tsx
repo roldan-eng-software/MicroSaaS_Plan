@@ -3,6 +3,7 @@ import { useBudgets } from '../hooks/useBudgets';
 import { useCustomers } from '../hooks/useCustomers';
 
 
+
 export default function Budgets() {
   const { budgets, loading, error, createBudget, updateBudget, deleteBudget } = useBudgets();
   const { customers } = useCustomers();
@@ -16,12 +17,15 @@ export default function Budgets() {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
 
 
   // Calcular final_amount automaticamente
   const calculateFinalAmount = (subtotal: number, discount: number) => {
     return subtotal - (subtotal * (discount / 100));
   };
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,11 +36,13 @@ export default function Budgets() {
     }
 
 
+
     try {
       const budgetData = {
         ...formData,
         final_amount: calculateFinalAmount(formData.subtotal_amount, formData.discount_percent),
       };
+
 
 
       if (editingId) {
@@ -61,6 +67,7 @@ export default function Budgets() {
   };
 
 
+
   const handleEdit = (budget: any) => {
     setFormData({
       title: budget.title,
@@ -74,6 +81,7 @@ export default function Budgets() {
   };
 
 
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja deletar este orçamento?')) {
       try {
@@ -85,56 +93,113 @@ export default function Budgets() {
   };
 
 
-const handleDownloadPDF = async (budgetId: string) => {
-  try {
-    setDownloadingId(budgetId);
-    
-    // Obter token do localStorage (agora está lá!)
-    const token = localStorage.getItem('access_token');
-    
-    if (!token) {
-      alert('❌ Token não encontrado. Faça login novamente.');
-      return;
-    }
 
-    console.log('✓ Token encontrado, gerando PDF...');
-
-    // Fazer requisição para o backend
-    const response = await fetch(
-      `http://localhost:8000/api/budgets/${budgetId}/pdf`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+  const handleDownloadPDF = async (budgetId: string) => {
+    try {
+      setDownloadingId(budgetId);
+      
+      // Obter token do localStorage (agora está lá!)
+      const token = localStorage.getItem('access_token');
+      
+      if (!token) {
+        alert('❌ Token não encontrado. Faça login novamente.');
+        return;
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Erro ao gerar PDF: ${response.status}`);
+
+      console.log('✓ Token encontrado, gerando PDF...');
+
+
+      // Fazer requisição para o backend
+      const response = await fetch(
+        `http://localhost:8000/api/budgets/${budgetId}/pdf`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+
+      if (!response.ok) {
+        throw new Error(`Erro ao gerar PDF: ${response.status}`);
+      }
+
+
+      // Converter resposta em blob
+      const blob = await response.blob();
+
+
+      // Criar um link temporário para download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `orcamento_${budgetId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+
+      alert('✅ PDF baixado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao baixar PDF:', err);
+      alert('❌ Erro ao baixar PDF');
+    } finally {
+      setDownloadingId(null);
     }
+  };
 
-    // Converter resposta em blob
-    const blob = await response.blob();
 
-    // Criar um link temporário para download
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `orcamento_${budgetId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+  const handleExportBudgets = async () => {
+    try {
+      setExporting(true);
+      
+      // Pegar o token do localStorage
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('Token não encontrado. Faça login novamente.');
+        return;
+      }
 
-    alert('✅ PDF baixado com sucesso!');
-  } catch (err) {
-    console.error('Erro ao baixar PDF:', err);
-    alert('❌ Erro ao baixar PDF');
-  } finally {
-    setDownloadingId(null);
-  }
-};
+      // Fazer requisição para o backend
+      const response = await fetch(
+        'http://localhost:8000/api/export/budgets',
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro ao exportar orçamentos');
+      }
+
+      // Converter resposta em blob
+      const blob = await response.blob();
+
+      // Criar um link temporário para download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `orcamentos_${new Date().toLocaleDateString('pt-BR')}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      alert('✅ Arquivo de orçamentos exportado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar:', err);
+      alert('❌ Erro ao exportar orçamentos');
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
 
   const handleCancel = () => {
@@ -150,6 +215,7 @@ const handleDownloadPDF = async (budgetId: string) => {
   };
 
 
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
@@ -162,15 +228,29 @@ const handleDownloadPDF = async (budgetId: string) => {
   };
 
 
+
   if (loading) return <div className="p-6">Carregando...</div>;
+
 
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Orçamentos</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Orçamentos</h1>
+        <button
+          onClick={handleExportBudgets}
+          disabled={exporting || budgets.length === 0}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          title="Exportar orçamentos em Excel"
+        >
+          {exporting ? '⏳ Exportando...' : '📥 Exportar Excel'}
+        </button>
+      </div>
+
 
 
       {error && <div className="bg-red-100 text-red-700 p-4 rounded">{error}</div>}
+
 
 
       {/* Formulário */}
@@ -180,6 +260,7 @@ const handleDownloadPDF = async (budgetId: string) => {
         </h2>
 
 
+
         <input
           type="text"
           placeholder="Título"
@@ -187,6 +268,7 @@ const handleDownloadPDF = async (budgetId: string) => {
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           className="w-full px-4 py-2 border rounded"
         />
+
 
 
         <select
@@ -201,6 +283,7 @@ const handleDownloadPDF = async (budgetId: string) => {
             </option>
           ))}
         </select>
+
 
 
         <div className="grid grid-cols-3 gap-4">
@@ -221,6 +304,7 @@ const handleDownloadPDF = async (budgetId: string) => {
           />
 
 
+
           <input
             type="number"
             placeholder="Desconto %"
@@ -238,6 +322,7 @@ const handleDownloadPDF = async (budgetId: string) => {
           />
 
 
+
           <input
             type="number"
             placeholder="Total Final"
@@ -246,6 +331,7 @@ const handleDownloadPDF = async (budgetId: string) => {
             className="px-4 py-2 border rounded bg-gray-100"
           />
         </div>
+
 
 
         <select
@@ -257,6 +343,7 @@ const handleDownloadPDF = async (budgetId: string) => {
           <option value="approved">Aprovado</option>
           <option value="rejected">Rejeitado</option>
         </select>
+
 
 
         <div className="flex gap-2">
@@ -277,6 +364,7 @@ const handleDownloadPDF = async (budgetId: string) => {
           )}
         </div>
       </form>
+
 
 
       {/* Tabela */}

@@ -1,4 +1,5 @@
 import os
+from export_generator import generate_customers_excel, generate_budgets_excel, generate_monthly_report_excel
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -203,6 +204,113 @@ async def delete_budget(budget_id: str, request: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ENDPOINTS - EXPORTAÇÃO DE DADOS
+@app.get("/api/export/customers")
+async def export_customers(request: Request):
+    """
+    Download Excel com dados dos clientes
+    """
+    try:
+        user_id = get_user_id(request)
+        
+        # Buscar clientes do usuário
+        response = supabase.table("customers").select("*").eq("user_id", user_id).execute()
+        customers = response.data
+        
+        if not customers:
+            raise HTTPException(status_code=404, detail="Nenhum cliente encontrado")
+        
+        # Gerar Excel
+        excel_buffer = generate_customers_excel(customers)
+        
+        # Retornar Excel como resposta
+        return StreamingResponse(
+            iter([excel_buffer.getvalue()]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename=clientes_{datetime.now().strftime('%d-%m-%Y')}.xlsx"
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar clientes: {str(e)}")
+
+
+@app.get("/api/export/budgets")
+async def export_budgets(request: Request):
+    """
+    Download Excel com dados dos orçamentos
+    """
+    try:
+        user_id = get_user_id(request)
+        
+        # Buscar orçamentos do usuário
+        budgets_response = supabase.table("budgets").select("*").eq("user_id", user_id).execute()
+        budgets = budgets_response.data
+        
+        # Buscar clientes do usuário (para referência)
+        customers_response = supabase.table("customers").select("*").eq("user_id", user_id).execute()
+        customers = customers_response.data
+        
+        if not budgets:
+            raise HTTPException(status_code=404, detail="Nenhum orçamento encontrado")
+        
+        # Gerar Excel
+        excel_buffer = generate_budgets_excel(budgets, customers)
+        
+        # Retornar Excel como resposta
+        return StreamingResponse(
+            iter([excel_buffer.getvalue()]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename=orcamentos_{datetime.now().strftime('%d-%m-%Y')}.xlsx"
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar orçamentos: {str(e)}")
+
+
+@app.get("/api/export/monthly-report")
+async def export_monthly_report(request: Request):
+    """
+    Download Excel com relatório mensal completo
+    """
+    try:
+        user_id = get_user_id(request)
+        
+        # Buscar orçamentos do usuário
+        budgets_response = supabase.table("budgets").select("*").eq("user_id", user_id).execute()
+        budgets = budgets_response.data
+        
+        # Buscar clientes do usuário
+        customers_response = supabase.table("customers").select("*").eq("user_id", user_id).execute()
+        customers = customers_response.data
+        
+        if not budgets:
+            raise HTTPException(status_code=404, detail="Nenhum orçamento encontrado")
+        
+        # Gerar Excel
+        excel_buffer = generate_monthly_report_excel(budgets, customers)
+        
+        # Retornar Excel como resposta
+        return StreamingResponse(
+            iter([excel_buffer.getvalue()]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename=relatorio_mensal_{datetime.now().strftime('%d-%m-%Y')}.xlsx"
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar relatório: {str(e)}")
 
 
 # ENDPOINTS - PDF
