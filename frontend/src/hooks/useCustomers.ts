@@ -7,7 +7,9 @@ interface Customer {
   name: string;
   email?: string;
   phone?: string;
+  created_at?: string;
 }
+
 
 export function useCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([]);

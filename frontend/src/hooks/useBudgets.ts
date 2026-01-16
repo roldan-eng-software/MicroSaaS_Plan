@@ -10,7 +10,9 @@ interface Budget {
   discount_percent: number;
   final_amount: number;
   status?: string;
+  created_at?: string;
 }
+
 
 export function useBudgets() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
