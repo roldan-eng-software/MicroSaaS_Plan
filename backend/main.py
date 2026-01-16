@@ -77,3 +77,20 @@ async def create_budget(budget: dict):
     budgets_db.append(budget)
     return budget
 
+@app.put("/api/budgets/{budget_id}")
+async def update_budget(budget_id: str, budget: dict):
+    for i, b in enumerate(budgets_db):
+        if b["id"] == budget_id:
+            budget["id"] = budget_id
+            budgets_db[i] = budget
+            return budget
+    return {"error": "Orçamento não encontrado"}, 404
+
+
+@app.delete("/api/budgets/{budget_id}")
+async def delete_budget(budget_id: str):
+    for i, b in enumerate(budgets_db):
+        if b["id"] == budget_id:
+            deleted = budgets_db.pop(i)
+            return {"message": "Orçamento deletado", "budget": deleted}
+    return {"error": "Orçamento não encontrado"}, 404
