@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useBudgets } from '../hooks/useBudgets';
 import { useCustomers } from '../hooks/useCustomers';
 
+
 export default function Budgets() {
   const { budgets, loading, error, createBudget, updateBudget, deleteBudget } = useBudgets();
   const { customers } = useCustomers();
@@ -14,11 +15,14 @@ export default function Budgets() {
     status: 'draft',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
 
   // Calcular final_amount automaticamente
   const calculateFinalAmount = (subtotal: number, discount: number) => {
     return subtotal - (subtotal * (discount / 100));
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,11 +31,13 @@ export default function Budgets() {
       return;
     }
 
+
     try {
       const budgetData = {
         ...formData,
         final_amount: calculateFinalAmount(formData.subtotal_amount, formData.discount_percent),
       };
+
 
       if (editingId) {
         // Modo edição
@@ -54,6 +60,7 @@ export default function Budgets() {
     }
   };
 
+
   const handleEdit = (budget: any) => {
     setFormData({
       title: budget.title,
@@ -66,6 +73,7 @@ export default function Budgets() {
     setEditingId(budget.id);
   };
 
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja deletar este orçamento?')) {
       try {
@@ -75,6 +83,59 @@ export default function Budgets() {
       }
     }
   };
+
+
+const handleDownloadPDF = async (budgetId: string) => {
+  try {
+    setDownloadingId(budgetId);
+    
+    // Obter token do localStorage (agora está lá!)
+    const token = localStorage.getItem('access_token');
+    
+    if (!token) {
+      alert('❌ Token não encontrado. Faça login novamente.');
+      return;
+    }
+
+    console.log('✓ Token encontrado, gerando PDF...');
+
+    // Fazer requisição para o backend
+    const response = await fetch(
+      `http://localhost:8000/api/budgets/${budgetId}/pdf`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Erro ao gerar PDF: ${response.status}`);
+    }
+
+    // Converter resposta em blob
+    const blob = await response.blob();
+
+    // Criar um link temporário para download
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `orcamento_${budgetId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    alert('✅ PDF baixado com sucesso!');
+  } catch (err) {
+    console.error('Erro ao baixar PDF:', err);
+    alert('❌ Erro ao baixar PDF');
+  } finally {
+    setDownloadingId(null);
+  }
+};
+
 
   const handleCancel = () => {
     setFormData({
@@ -88,6 +149,7 @@ export default function Budgets() {
     setEditingId(null);
   };
 
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
@@ -99,19 +161,24 @@ export default function Budgets() {
     }
   };
 
+
   if (loading) return <div className="p-6">Carregando...</div>;
+
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold">Orçamentos</h1>
 
+
       {error && <div className="bg-red-100 text-red-700 p-4 rounded">{error}</div>}
+
 
       {/* Formulário */}
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow space-y-4">
         <h2 className="text-xl font-semibold">
           {editingId ? 'Editar Orçamento' : 'Novo Orçamento'}
         </h2>
+
 
         <input
           type="text"
@@ -121,7 +188,8 @@ export default function Budgets() {
           className="w-full px-4 py-2 border rounded"
         />
 
-                <select
+
+        <select
           value={formData.customer_id}
           onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
           className="w-full px-4 py-2 border rounded"
@@ -152,6 +220,7 @@ export default function Budgets() {
             step="0.01"
           />
 
+
           <input
             type="number"
             placeholder="Desconto %"
@@ -168,6 +237,7 @@ export default function Budgets() {
             step="0.01"
           />
 
+
           <input
             type="number"
             placeholder="Total Final"
@@ -176,6 +246,7 @@ export default function Budgets() {
             className="px-4 py-2 border rounded bg-gray-100"
           />
         </div>
+
 
         <select
           value={formData.status}
@@ -186,6 +257,7 @@ export default function Budgets() {
           <option value="approved">Aprovado</option>
           <option value="rejected">Rejeitado</option>
         </select>
+
 
         <div className="flex gap-2">
           <button
@@ -205,6 +277,7 @@ export default function Budgets() {
           )}
         </div>
       </form>
+
 
       {/* Tabela */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -231,7 +304,7 @@ export default function Budgets() {
               budgets.map((budget) => (
                 <tr key={budget.id} className="border-t hover:bg-gray-50">
                   <td className="px-6 py-4">{budget.title}</td>
-                                    <td className="px-6 py-4">
+                  <td className="px-6 py-4">
                     {budget.customer_id
                       ? customers.find((c) => c.id === budget.customer_id)?.name || 'Cliente não encontrado'
                       : '-'}
@@ -247,6 +320,14 @@ export default function Budgets() {
                     </span>
                   </td>
                   <td className="px-6 py-4 flex justify-center gap-2">
+                    <button
+                      onClick={() => handleDownloadPDF(budget.id)}
+                      disabled={downloadingId === budget.id}
+                      className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                      title="Baixar PDF"
+                    >
+                      {downloadingId === budget.id ? '⏳' : '📄 PDF'}
+                    </button>
                     <button
                       onClick={() => handleEdit(budget)}
                       className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600"
