@@ -1,14 +1,40 @@
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useAuth } from './hooks/useAuth';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import Budgets from './pages/Budgets';
 import Settings from './pages/Settings';
 import './index.css';
 
-function App() {
+// Componente para proteger rotas
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🪵</div>
+          <p className="text-lg text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// Layout da aplicação (com sidebar)
+function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -18,6 +44,14 @@ function App() {
     { path: '/budgets', label: 'Orçamentos', icon: '📋' },
     { path: '/settings', label: 'Configurações', icon: '⚙️' },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      alert('Erro ao fazer logout');
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -75,10 +109,10 @@ function App() {
             </h1>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">
-                👋 Bem-vindo ao seu sistema!
+                👤 {user?.email}
               </span>
               <button
-                onClick={() => alert('Função de logout será implementada em breve!')}
+                onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition text-sm"
               >
                 Sair
@@ -90,15 +124,29 @@ function App() {
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
           <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/budgets" element={<Budgets />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+            <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
       </div>
     </div>
+  );
+}
+
+// Componente principal
+function App() {
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
+
+  return isLoginPage ? (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+    </Routes>
+  ) : (
+    <AppLayout />
   );
 }
 

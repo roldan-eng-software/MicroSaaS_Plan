@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { authenticatedFetch } from '../lib/api';
 
 const API_URL = 'http://localhost:8000/api/budgets';
 
@@ -13,7 +14,6 @@ interface Budget {
   created_at?: string;
 }
 
-
 export function useBudgets() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,8 +24,7 @@ export function useBudgets() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(API_URL);
-      const data = await response.json();
+      const data = await authenticatedFetch(API_URL);
       setBudgets(data);
     } catch (err) {
       setError('Erro ao carregar orçamentos');
@@ -38,12 +37,10 @@ export function useBudgets() {
   // Criar orçamento
   const createBudget = async (budget: Omit<Budget, 'id'>) => {
     try {
-      const response = await fetch(API_URL, {
+      const newBudget = await authenticatedFetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(budget),
       });
-      const newBudget = await response.json();
       setBudgets([...budgets, newBudget]);
       return newBudget;
     } catch (err) {
@@ -56,12 +53,10 @@ export function useBudgets() {
   // Editar orçamento
   const updateBudget = async (id: string, budget: Omit<Budget, 'id'>) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
+      const updatedBudget = await authenticatedFetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(budget),
       });
-      const updatedBudget = await response.json();
       setBudgets(budgets.map(b => b.id === id ? updatedBudget : b));
       return updatedBudget;
     } catch (err) {
@@ -74,7 +69,7 @@ export function useBudgets() {
   // Deletar orçamento
   const deleteBudget = async (id: string) => {
     try {
-      await fetch(`${API_URL}/${id}`, {
+      await authenticatedFetch(`${API_URL}/${id}`, {
         method: 'DELETE',
       });
       setBudgets(budgets.filter(b => b.id !== id));

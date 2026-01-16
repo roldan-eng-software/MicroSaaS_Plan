@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { authenticatedFetch } from '../lib/api';
 
 const API_URL = 'http://localhost:8000/api/customers';
 
@@ -10,7 +11,6 @@ interface Customer {
   created_at?: string;
 }
 
-
 export function useCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,8 +21,7 @@ export function useCustomers() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(API_URL);
-      const data = await response.json();
+      const data = await authenticatedFetch(API_URL);
       setCustomers(data);
     } catch (err) {
       setError('Erro ao carregar clientes');
@@ -35,12 +34,10 @@ export function useCustomers() {
   // Criar cliente
   const createCustomer = async (customer: Omit<Customer, 'id'>) => {
     try {
-      const response = await fetch(API_URL, {
+      const newCustomer = await authenticatedFetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(customer),
       });
-      const newCustomer = await response.json();
       setCustomers([...customers, newCustomer]);
       return newCustomer;
     } catch (err) {
@@ -53,12 +50,10 @@ export function useCustomers() {
   // Editar cliente
   const updateCustomer = async (id: string, customer: Omit<Customer, 'id'>) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
+      const updatedCustomer = await authenticatedFetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(customer),
       });
-      const updatedCustomer = await response.json();
       setCustomers(customers.map(c => c.id === id ? updatedCustomer : c));
       return updatedCustomer;
     } catch (err) {
@@ -71,7 +66,7 @@ export function useCustomers() {
   // Deletar cliente
   const deleteCustomer = async (id: string) => {
     try {
-      await fetch(`${API_URL}/${id}`, {
+      await authenticatedFetch(`${API_URL}/${id}`, {
         method: 'DELETE',
       });
       setCustomers(customers.filter(c => c.id !== id));
