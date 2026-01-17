@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useBudgets } from '../hooks/useBudgets';
 import { useCustomers } from '../hooks/useCustomers';
-
-
+import { useEmailJS } from '../hooks/useEmailJS';
 
 export default function Budgets() {
   const { budgets, loading, error, createBudget, updateBudget, deleteBudget } = useBudgets();
   const { customers } = useCustomers();
+  const { sendBudgetConfirmationEmail, sendBudgetApprovalEmail } = useEmailJS();
+  
   const [formData, setFormData] = useState({
     title: '',
     customer_id: '',
@@ -18,15 +19,12 @@ export default function Budgets() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-
-
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
 
   // Calcular final_amount automaticamente
   const calculateFinalAmount = (subtotal: number, discount: number) => {
     return subtotal - (subtotal * (discount / 100));
   };
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,15 +33,11 @@ export default function Budgets() {
       return;
     }
 
-
-
     try {
       const budgetData = {
         ...formData,
         final_amount: calculateFinalAmount(formData.subtotal_amount, formData.discount_percent),
       };
-
-
 
       if (editingId) {
         // Modo edição
@@ -66,8 +60,6 @@ export default function Budgets() {
     }
   };
 
-
-
   const handleEdit = (budget: any) => {
     setFormData({
       title: budget.title,
@@ -80,8 +72,6 @@ export default function Budgets() {
     setEditingId(budget.id);
   };
 
-
-
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja deletar este orçamento?')) {
       try {
@@ -92,13 +82,9 @@ export default function Budgets() {
     }
   };
 
-
-
   const handleDownloadPDF = async (budgetId: string) => {
     try {
       setDownloadingId(budgetId);
-      
-      // Obter token do localStorage (agora está lá!)
       const token = localStorage.getItem('access_token');
       
       if (!token) {
@@ -106,11 +92,6 @@ export default function Budgets() {
         return;
       }
 
-
-      console.log('✓ Token encontrado, gerando PDF...');
-
-
-      // Fazer requisição para o backend
       const response = await fetch(
         `http://localhost:8000/api/budgets/${budgetId}/pdf`,
         {
@@ -121,17 +102,11 @@ export default function Budgets() {
         }
       );
 
-
       if (!response.ok) {
         throw new Error(`Erro ao gerar PDF: ${response.status}`);
       }
 
-
-      // Converter resposta em blob
       const blob = await response.blob();
-
-
-      // Criar um link temporário para download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -140,7 +115,6 @@ export default function Budgets() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
 
       alert('✅ PDF baixado com sucesso!');
     } catch (err) {
@@ -151,19 +125,15 @@ export default function Budgets() {
     }
   };
 
-
   const handleExportBudgets = async () => {
     try {
       setExporting(true);
-      
-      // Pegar o token do localStorage
       const token = localStorage.getItem('access_token');
       if (!token) {
         alert('Token não encontrado. Faça login novamente.');
         return;
       }
 
-      // Fazer requisição para o backend
       const response = await fetch(
         'http://localhost:8000/api/export/budgets',
         {
@@ -178,10 +148,7 @@ export default function Budgets() {
         throw new Error('Erro ao exportar orçamentos');
       }
 
-      // Converter resposta em blob
       const blob = await response.blob();
-
-      // Criar um link temporário para download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -200,7 +167,52 @@ export default function Budgets() {
     }
   };
 
+  // ✅ NOVA FUNÇÃO: Enviar Email com EmailJS
+  const handleSendEmail = async (budgetId: string, emailType: 'confirmation' | 'approval') => {
+    try {
+      setSendingEmailId(budgetId);
 
+      // Encontrar o orçamento
+      const budget = budgets.find(b => b.id === budgetId);
+      if (!budget) {
+        alert('❌ Orçamento não encontrado');
+        return;
+      }
+
+      // Encontrar o cliente
+      const customer = customers.find(c => c.id === budget.customer_id);
+      if (!customer || !customer.email) {
+        alert('❌ Cliente sem email cadastrado');
+        return;
+      }
+
+      // Enviar email com EmailJS
+      if (emailType === 'confirmation') {
+        await sendBudgetConfirmationEmail(
+          customer.email,
+          customer.name,
+          budget.title,
+          budget.final_amount,
+          budget.id
+        );
+        alert('✅ Email de confirmação enviado com sucesso!');
+      } else {
+        await sendBudgetApprovalEmail(
+          customer.email,
+          customer.name,
+          budget.title,
+          budget.final_amount,
+          budget.status || 'draft'
+        );
+        alert('✅ Email de atualização enviado com sucesso!');
+      }
+    } catch (err) {
+      console.error('Erro ao enviar email:', err);
+      alert('❌ Erro ao enviar email');
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
 
   const handleCancel = () => {
     setFormData({
@@ -214,8 +226,6 @@ export default function Budgets() {
     setEditingId(null);
   };
 
-
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
@@ -227,11 +237,7 @@ export default function Budgets() {
     }
   };
 
-
-
   if (loading) return <div className="p-6">Carregando...</div>;
-
-
 
   return (
     <div className="p-6 space-y-6">
@@ -247,19 +253,13 @@ export default function Budgets() {
         </button>
       </div>
 
-
-
       {error && <div className="bg-red-100 text-red-700 p-4 rounded">{error}</div>}
-
-
 
       {/* Formulário */}
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow space-y-4">
         <h2 className="text-xl font-semibold">
           {editingId ? 'Editar Orçamento' : 'Novo Orçamento'}
         </h2>
-
-
 
         <input
           type="text"
@@ -268,8 +268,6 @@ export default function Budgets() {
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           className="w-full px-4 py-2 border rounded"
         />
-
-
 
         <select
           value={formData.customer_id}
@@ -283,8 +281,6 @@ export default function Budgets() {
             </option>
           ))}
         </select>
-
-
 
         <div className="grid grid-cols-3 gap-4">
           <input
@@ -303,8 +299,6 @@ export default function Budgets() {
             step="0.01"
           />
 
-
-
           <input
             type="number"
             placeholder="Desconto %"
@@ -321,8 +315,6 @@ export default function Budgets() {
             step="0.01"
           />
 
-
-
           <input
             type="number"
             placeholder="Total Final"
@@ -331,8 +323,6 @@ export default function Budgets() {
             className="px-4 py-2 border rounded bg-gray-100"
           />
         </div>
-
-
 
         <select
           value={formData.status}
@@ -343,8 +333,6 @@ export default function Budgets() {
           <option value="approved">Aprovado</option>
           <option value="rejected">Rejeitado</option>
         </select>
-
-
 
         <div className="flex gap-2">
           <button
@@ -364,8 +352,6 @@ export default function Budgets() {
           )}
         </div>
       </form>
-
-
 
       {/* Tabela */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -407,27 +393,47 @@ export default function Budgets() {
                       {budget.status === 'rejected' && 'Rejeitado'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 flex justify-center gap-2">
-                    <button
-                      onClick={() => handleDownloadPDF(budget.id)}
-                      disabled={downloadingId === budget.id}
-                      className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
-                      title="Baixar PDF"
-                    >
-                      {downloadingId === budget.id ? '⏳' : '📄 PDF'}
-                    </button>
-                    <button
-                      onClick={() => handleEdit(budget)}
-                      className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(budget.id)}
-                      className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                    >
-                      Deletar
-                    </button>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-center gap-1 flex-wrap">
+                      <button
+                        onClick={() => handleDownloadPDF(budget.id)}
+                        disabled={downloadingId === budget.id}
+                        className="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700 disabled:opacity-50"
+                        title="Baixar PDF"
+                      >
+                        {downloadingId === budget.id ? '⏳' : '📄'}
+                      </button>
+                      <button
+                        onClick={() => handleSendEmail(budget.id, 'confirmation')}
+                        disabled={sendingEmailId === budget.id || !budget.customer_id}
+                        className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                        title="Enviar email de confirmação"
+                      >
+                        {sendingEmailId === budget.id ? '⏳' : '📧'}
+                      </button>
+                      <button
+                        onClick={() => handleSendEmail(budget.id, 'approval')}
+                        disabled={sendingEmailId === budget.id || !budget.customer_id}
+                        className="bg-purple-600 text-white px-2 py-1 rounded text-xs hover:bg-purple-700 disabled:opacity-50"
+                        title="Enviar email de atualização"
+                      >
+                        {sendingEmailId === budget.id ? '⏳' : '💌'}
+                      </button>
+                      <button
+                        onClick={() => handleEdit(budget)}
+                        className="bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600"
+                        title="Editar"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDelete(budget.id)}
+                        className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+                        title="Deletar"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
