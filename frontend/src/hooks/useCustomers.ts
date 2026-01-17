@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../lib/api';
+import { useToast } from '../components/Toast';
 
 const API_URL = 'http://localhost:8000/api/customers';
 
@@ -15,6 +16,7 @@ export function useCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   // Buscar clientes
   const fetchCustomers = async () => {
@@ -23,9 +25,11 @@ export function useCustomers() {
     try {
       const data = await authenticatedFetch(API_URL);
       setCustomers(data);
-    } catch (err) {
-      setError('Erro ao carregar clientes');
-      console.error(err);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao carregar clientes';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao buscar clientes:', err);
     } finally {
       setLoading(false);
     }
@@ -39,10 +43,13 @@ export function useCustomers() {
         body: JSON.stringify(customer),
       });
       setCustomers([...customers, newCustomer]);
+      toast.success(`✅ Cliente "${customer.name}" criado com sucesso!`);
       return newCustomer;
-    } catch (err) {
-      setError('Erro ao criar cliente');
-      console.error(err);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao criar cliente';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao criar cliente:', err);
       throw err;
     }
   };
@@ -55,10 +62,13 @@ export function useCustomers() {
         body: JSON.stringify(customer),
       });
       setCustomers(customers.map(c => c.id === id ? updatedCustomer : c));
+      toast.success(`✅ Cliente "${customer.name}" atualizado com sucesso!`);
       return updatedCustomer;
-    } catch (err) {
-      setError('Erro ao editar cliente');
-      console.error(err);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao editar cliente';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao editar cliente:', err);
       throw err;
     }
   };
@@ -70,9 +80,12 @@ export function useCustomers() {
         method: 'DELETE',
       });
       setCustomers(customers.filter(c => c.id !== id));
-    } catch (err) {
-      setError('Erro ao deletar cliente');
-      console.error(err);
+      toast.success('✅ Cliente deletado com sucesso!');
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao deletar cliente';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao deletar cliente:', err);
       throw err;
     }
   };
