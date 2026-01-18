@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { authenticatedFetch } from '../lib/api';
 import { useToast } from '../components/Toast';
 
 const API_URL = 'http://localhost:8000/api/customers';
@@ -7,8 +6,18 @@ const API_URL = 'http://localhost:8000/api/customers';
 interface Customer {
   id: string;
   name: string;
+  cep?: string;
+  endereco?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  telefone?: string;
   email?: string;
-  phone?: string;
+  cpf_cnpj?: string;
+  tipo_pessoa?: 'fisica' | 'juridica';
+  detalhes?: string;
   created_at?: string;
 }
 
@@ -17,6 +26,38 @@ export function useCustomers() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+
+  // Função auxiliar para fazer requisições autenticadas
+  const authenticatedFetch = async (url: string, options?: RequestInit) => {
+    const token = localStorage.getItem('access_token');
+
+    if (!token) {
+      throw new Error('Token não encontrado. Faça login novamente.');
+    }
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options?.headers,
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem('access_token');
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Erro: ${response.statusText}`);
+    }
+
+    return response.json();
+  };
 
   // Buscar clientes
   const fetchCustomers = async () => {
@@ -36,7 +77,7 @@ export function useCustomers() {
   };
 
   // Criar cliente
-  const createCustomer = async (customer: Omit<Customer, 'id'>) => {
+  const createCustomer = async (customer: Omit<Customer, 'id' | 'created_at'>) => {
     try {
       const newCustomer = await authenticatedFetch(API_URL, {
         method: 'POST',
@@ -55,7 +96,7 @@ export function useCustomers() {
   };
 
   // Editar cliente
-  const updateCustomer = async (id: string, customer: Omit<Customer, 'id'>) => {
+  const updateCustomer = async (id: string, customer: Omit<Customer, 'id' | 'created_at'>) => {
     try {
       const updatedCustomer = await authenticatedFetch(`${API_URL}/${id}`, {
         method: 'PUT',
