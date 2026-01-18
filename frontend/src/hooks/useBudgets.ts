@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../lib/api';
 import { useEmailJS } from './useEmailJS';
+import { useToast } from '../components/Toast';
 
 const API_URL = 'http://localhost:8000/api/budgets';
 
@@ -20,6 +21,7 @@ export function useBudgets() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { sendBudgetConfirmationEmail } = useEmailJS();
+  const toast = useToast();
 
   // Buscar orçamentos
   const fetchBudgets = async () => {
@@ -28,9 +30,11 @@ export function useBudgets() {
     try {
       const data = await authenticatedFetch(API_URL);
       setBudgets(data);
-    } catch (err) {
-      setError('Erro ao carregar orçamentos');
-      console.error(err);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao carregar orçamentos';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao buscar orçamentos:', err);
     } finally {
       setLoading(false);
     }
@@ -44,6 +48,7 @@ export function useBudgets() {
         body: JSON.stringify(budget),
       });
       setBudgets([...budgets, newBudget]);
+      toast.success(`✅ Orçamento "${budget.title}" criado com sucesso!`);
 
       // ✅ Enviar email de confirmação
       if (budget.customer_email && budget.customer_name) {
@@ -55,17 +60,20 @@ export function useBudgets() {
             newBudget.final_amount,
             newBudget.id
           );
+          toast.success('📧 Email de confirmação enviado!');
           console.log('Email de confirmação enviado com sucesso!');
-        } catch (emailError) {
+        } catch (emailError: any) {
           console.error('Erro ao enviar email:', emailError);
-          // Não falha a criação do orçamento se o email falhar
+          toast.warning('⚠️ Orçamento criado, mas erro ao enviar email');
         }
       }
 
       return newBudget;
-    } catch (err) {
-      setError('Erro ao criar orçamento');
-      console.error(err);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao criar orçamento';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao criar orçamento:', err);
       throw err;
     }
   };
@@ -78,10 +86,13 @@ export function useBudgets() {
         body: JSON.stringify(budget),
       });
       setBudgets(budgets.map(b => b.id === id ? updatedBudget : b));
+      toast.success(`✅ Orçamento "${budget.title}" atualizado com sucesso!`);
       return updatedBudget;
-    } catch (err) {
-      setError('Erro ao editar orçamento');
-      console.error(err);
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao editar orçamento';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao editar orçamento:', err);
       throw err;
     }
   };
@@ -93,9 +104,12 @@ export function useBudgets() {
         method: 'DELETE',
       });
       setBudgets(budgets.filter(b => b.id !== id));
-    } catch (err) {
-      setError('Erro ao deletar orçamento');
-      console.error(err);
+      toast.success('✅ Orçamento deletado com sucesso!');
+    } catch (err: any) {
+      const errorMsg = err.message || 'Erro ao deletar orçamento';
+      setError(errorMsg);
+      toast.error(`❌ ${errorMsg}`);
+      console.error('Erro ao deletar orçamento:', err);
       throw err;
     }
   };

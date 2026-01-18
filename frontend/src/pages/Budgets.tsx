@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useBudgets } from '../hooks/useBudgets';
 import { useCustomers } from '../hooks/useCustomers';
 import { useEmailJS } from '../hooks/useEmailJS';
+import { useWhatsApp } from '../hooks/useWhatsApp';
 
 export default function Budgets() {
   const { budgets, loading, error, createBudget, updateBudget, deleteBudget } = useBudgets();
   const { customers } = useCustomers();
   const { sendBudgetConfirmationEmail, sendBudgetApprovalEmail } = useEmailJS();
+  const { sendBudgetViaWhatsApp } = useWhatsApp();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -40,11 +42,9 @@ export default function Budgets() {
       };
 
       if (editingId) {
-        // Modo edição
         await updateBudget(editingId, budgetData);
         setEditingId(null);
       } else {
-        // Modo criação
         await createBudget(budgetData);
       }
       setFormData({
@@ -167,26 +167,22 @@ export default function Budgets() {
     }
   };
 
-  // ✅ NOVA FUNÇÃO: Enviar Email com EmailJS
   const handleSendEmail = async (budgetId: string, emailType: 'confirmation' | 'approval') => {
     try {
       setSendingEmailId(budgetId);
 
-      // Encontrar o orçamento
       const budget = budgets.find(b => b.id === budgetId);
       if (!budget) {
         alert('❌ Orçamento não encontrado');
         return;
       }
 
-      // Encontrar o cliente
       const customer = customers.find(c => c.id === budget.customer_id);
       if (!customer || !customer.email) {
         alert('❌ Cliente sem email cadastrado');
         return;
       }
 
-      // Enviar email com EmailJS
       if (emailType === 'confirmation') {
         await sendBudgetConfirmationEmail(
           customer.email,
@@ -195,7 +191,6 @@ export default function Budgets() {
           budget.final_amount,
           budget.id
         );
-        alert('✅ Email de confirmação enviado com sucesso!');
       } else {
         await sendBudgetApprovalEmail(
           customer.email,
@@ -204,13 +199,20 @@ export default function Budgets() {
           budget.final_amount,
           budget.status || 'draft'
         );
-        alert('✅ Email de atualização enviado com sucesso!');
       }
     } catch (err) {
       console.error('Erro ao enviar email:', err);
       alert('❌ Erro ao enviar email');
     } finally {
       setSendingEmailId(null);
+    }
+  };
+
+  const handleSendWhatsApp = async (budgetId: string) => {
+    try {
+      await sendBudgetViaWhatsApp(budgetId);
+    } catch (err) {
+      console.error('Erro ao enviar WhatsApp:', err);
     }
   };
 
@@ -412,12 +414,20 @@ export default function Budgets() {
                         {sendingEmailId === budget.id ? '⏳' : '📧'}
                       </button>
                       <button
+                        onClick={() => handleSendWhatsApp(budget.id)}
+                        disabled={sendingEmailId === budget.id || !budget.customer_id}
+                        className="bg-green-700 text-white px-2 py-1 rounded text-xs hover:bg-green-800 disabled:opacity-50"
+                        title="Enviar via WhatsApp"
+                      >
+                        {sendingEmailId === budget.id ? '⏳' : '💬'}
+                      </button>
+                      <button
                         onClick={() => handleSendEmail(budget.id, 'approval')}
                         disabled={sendingEmailId === budget.id || !budget.customer_id}
                         className="bg-purple-600 text-white px-2 py-1 rounded text-xs hover:bg-purple-700 disabled:opacity-50"
                         title="Enviar email de atualização"
                       >
-                        {sendingEmailId === budget.id ? '⏳' : '💌'}
+                        {sendingEmailId === budget.id ? '⏳' : '👌'}
                       </button>
                       <button
                         onClick={() => handleEdit(budget)}

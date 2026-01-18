@@ -1,4 +1,5 @@
 import os
+from whatsapp_service import send_whatsapp_message
 from export_generator import generate_customers_excel, generate_budgets_excel, generate_monthly_report_excel
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -205,6 +206,7 @@ async def delete_budget(budget_id: str, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # ENDPOINTS - EXPORTAÇÃO DE DADOS
 @app.get("/api/export/customers")
 async def export_customers(request: Request):
@@ -374,3 +376,56 @@ async def download_budget_pdf(budget_id: str, request: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar PDF: {str(e)}")
+
+
+# ENDPOINTS - WHATSAPP
+@app.get("/api/budgets/{budget_id}/whatsapp")
+async def generate_whatsapp_link(budget_id: str, request: Request):
+    """
+    Gera link para enviar orçamento via WhatsApp
+    """
+    try:
+        user_id = get_user_id(request)
+        
+        # Buscar orçamento
+        budget_response = supabase.table("budgets").select(
+            "id, title, final_amount, customer_id, created_at"
+        ).eq("id", budget_id).eq("user_id", user_id).execute()
+        
+        if not budget_response.data:
+            raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+        
+        budget = budget_response.data[0]
+        
+        # Buscar dados do cliente
+        customer_response = supabase.table("customers").select(
+            "id, name, phone"
+        ).eq("id", budget["customer_id"]).execute()
+        
+        if not customer_response.data:
+            raise HTTPException(status_code=404, detail="Cliente não encontrado")
+        
+        customer = customer_response.data[0]
+        
+        # Validar se cliente tem telefone
+        if not customer.get("phone"):
+            raise HTTPException(
+                status_code=400, 
+                detail="Cliente não possui telefone cadastrado"
+            )
+        
+        # Gerar link WhatsApp
+        result = send_whatsapp_message(
+            phone_number=customer["phone"],
+            budget_title=budget["title"],
+            budget_amount=budget["final_amount"],
+            customer_name=customer["name"],
+            budget_id=budget["id"]
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar link WhatsApp: {str(e)}")
