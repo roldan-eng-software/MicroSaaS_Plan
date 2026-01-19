@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { useCustomers } from '../hooks/useCustomers';
 
 interface FormDataType {
@@ -35,13 +36,54 @@ const initialFormData: FormDataType = {
 
 export default function Customers() {
   const { customers, loading, error, createCustomer, updateCustomer, deleteCustomer } = useCustomers();
-
-  const [formData, setFormData] = useState<FormDataType>(initialFormData);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState(initialFormData);
+  const [editingId, setEditingId] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [searchingCep, setSearchingCep] = useState(false);
   const [cepError, setCepError] = useState('');
   const [validationError, setValidationError] = useState('');
+
+  // ==================== FUNÇÕES DE MÁSCARA ====================
+
+  // Máscara para Telefone: (xx) XXXX-XXXX
+  const formatPhoneNumber = (value: string): string => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 2) return `(${cleaned}`;
+    if (cleaned.length <= 6) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6, 10)}`;
+  };
+
+  // Máscara para CPF: XXX.XXX.XXX-XX
+  const formatCPF = (value: string): string => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
+    if (cleaned.length <= 9) return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
+    return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9, 11)}`;
+  };
+
+  // Máscara para CNPJ: XX.XXX.XXX/XXXX-XX
+  const formatCNPJ = (value: string): string => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 2) return cleaned;
+    if (cleaned.length <= 5) return `${cleaned.slice(0, 2)}.${cleaned.slice(2)}`;
+    if (cleaned.length <= 8) return `${cleaned.slice(0, 2)}.${cleaned.slice(2, 5)}.${cleaned.slice(5)}`;
+    if (cleaned.length <= 12) return `${cleaned.slice(0, 2)}.${cleaned.slice(2, 5)}.${cleaned.slice(5, 8)}/${cleaned.slice(8)}`;
+    return `${cleaned.slice(0, 2)}.${cleaned.slice(2, 5)}.${cleaned.slice(5, 8)}/${cleaned.slice(8, 12)}-${cleaned.slice(12, 14)}`;
+  };
+
+  // Máscara para CEP: XXXXX-XXX
+  const formatCEP = (value: string): string => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 5) return cleaned;
+    return `${cleaned.slice(0, 5)}-${cleaned.slice(5, 8)}`;
+  };
+
+  // ==================== FIM FUNÇÕES DE MÁSCARA ====================
 
   // Função para buscar endereço via ViaCEP
   const searchCep = async (cep: string) => {
@@ -91,7 +133,7 @@ export default function Customers() {
 
   // Validar CPF
   const validateCPF = (cpf: string): boolean => {
-    const cleanCpf = cpf.replace(/[^\\d]/g, '');
+    const cleanCpf = cpf.replace(/\D/g, '');
     if (cleanCpf.length !== 11) return false;
 
     let sum = 0;
@@ -119,13 +161,13 @@ export default function Customers() {
 
   // Validar CNPJ
   const validateCNPJ = (cnpj: string): boolean => {
-    const cleanCnpj = cnpj.replace(/[^\\d]/g, '');
+    const cleanCnpj = cnpj.replace(/\D/g, '');
     if (cleanCnpj.length !== 14) return false;
 
     let sum = 0;
     let remainder;
-
     const firstMultiplier = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
     for (let i = 0; i < 12; i++) {
       sum += parseInt(cleanCnpj[i]) * firstMultiplier[i];
     }
@@ -134,10 +176,11 @@ export default function Customers() {
     if (remainder < 2) remainder = 0;
     else remainder = 11 - remainder;
 
-    if (remainder !== parseInt(cleanCnpj)) return false;
+    if (remainder !== parseInt(cleanCnpj[12])) return false;
 
     sum = 0;
     const secondMultiplier = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
     for (let i = 0; i < 13; i++) {
       sum += parseInt(cleanCnpj[i]) * secondMultiplier[i];
     }
@@ -146,17 +189,43 @@ export default function Customers() {
     if (remainder < 2) remainder = 0;
     else remainder = 11 - remainder;
 
-    if (remainder !== parseInt(cleanCnpj)) return false;
+    if (remainder !== parseInt(cleanCnpj[13])) return false;
 
     return true;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  // Handle Input Change com máscaras
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    let formattedValue = value;
+
+    // Aplicar máscaras conforme o campo
+    if (name === 'telefone') {
+      formattedValue = formatPhoneNumber(value);
+    } else if (name === 'cpf_cnpj') {
+      if (formData.tipo_pessoa === 'fisica') {
+        formattedValue = formatCPF(value);
+      } else {
+        formattedValue = formatCNPJ(value);
+      }
+    } else if (name === 'cep') {
+      formattedValue = formatCEP(value);
+    }
+
+    setFormData({ ...formData, [name]: formattedValue });
     setValidationError('');
   };
 
+  // Handle quando muda tipo de pessoa (reset CPF/CNPJ)
+  const handleTipoPessoaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      tipo_pessoa: e.target.value as 'fisica' | 'juridica',
+      cpf_cnpj: '', // Limpa o campo para evitar confusão
+    });
+  };
+
+  // Handle Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -200,6 +269,7 @@ export default function Customers() {
     }
   };
 
+  // Handle Edit
   const handleEdit = (customer: any) => {
     setFormData({
       name: customer.name || '',
@@ -220,6 +290,7 @@ export default function Customers() {
     window.scrollTo(0, 0);
   };
 
+  // Handle Delete
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja deletar este cliente?')) {
       try {
@@ -230,12 +301,14 @@ export default function Customers() {
     }
   };
 
+  // Handle Cancel
   const handleCancel = () => {
     setFormData(initialFormData);
     setEditingId(null);
     setValidationError('');
   };
 
+  // Handle Export Clients
   const handleExportClients = async () => {
     try {
       setExporting(true);
@@ -276,276 +349,279 @@ export default function Customers() {
     }
   };
 
-  if (loading) return <div className="p-6 text-center">Carregando...</div>;
+  if (loading) return <div>Carregando...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">👥 Clientes</h1>
-          <button
-            onClick={handleExportClients}
-            disabled={exporting || customers.length === 0}
-            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
-          >
-            {exporting ? '⏳ Exportando...' : '📥 Exportar Excel'}
-          </button>
-        </div>
+    <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">👥 Clientes</h1>
+        <button
+          onClick={handleExportClients}
+          disabled={exporting || customers.length === 0}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
+        >
+          {exporting ? '⏳ Exportando...' : '📥 Exportar Excel'}
+        </button>
+      </div>
 
-        {/* Error Messages */}
-        {error && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 text-red-700">{error}</div>}
-        {validationError && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 text-red-700">{validationError}</div>}
-        {cepError && <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 text-yellow-700">{cepError}</div>}
+      {/* Error Messages */}
+      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+      {validationError && <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">{validationError}</div>}
+      {cepError && <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded mb-4">{cepError}</div>}
 
-        {/* Form */}
-        <div className="bg-white rounded-lg shadow-md p-8 mb-8">
-          <h2 className="text-xl font-bold mb-6 text-gray-900">
-            {editingId ? '✏️ Editar Cliente' : '➕ Novo Cliente'}
-          </h2>
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow-md mb-8">
+        <h2 className="text-2xl font-bold mb-6 text-gray-700">
+          {editingId ? '✏️ Editar Cliente' : '➕ Novo Cliente'}
+        </h2>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Row 1: Nome, Telefone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nome *</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Nome do cliente"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Telefone *</label>
-              <input
-                type="tel"
-                name="telefone"
-                value={formData.telefone}
-                onChange={handleInputChange}
-                placeholder="(11) 98765-4321"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Row 2: Email, Tipo Pessoa */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">E-mail (Opcional)</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="email@example.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Pessoa</label>
-              <select
-                name="tipo_pessoa"
-                value={formData.tipo_pessoa}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="fisica">Pessoa Física</option>
-                <option value="juridica">Pessoa Jurídica</option>
-              </select>
-            </div>
-
-            {/* Row 3: CPF/CNPJ, CEP */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {formData.tipo_pessoa === 'fisica' ? 'CPF' : 'CNPJ'} (Opcional)
-              </label>
-              <input
-                type="text"
-                name="cpf_cnpj"
-                value={formData.cpf_cnpj}
-                onChange={handleInputChange}
-                placeholder={formData.tipo_pessoa === 'fisica' ? '123.456.789-00' : '12.345.678/0001-00'}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">CEP (Opcional)</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="cep"
-                  value={formData.cep}
-                  onChange={handleInputChange}
-                  placeholder="01310-100"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {searchingCep && <span className="text-blue-600 text-sm py-2">⏳ Buscando...</span>}
-              </div>
-            </div>
-
-            {/* Row 4: Endereço, Número */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Endereço (Opcional)</label>
-              <input
-                type="text"
-                name="endereco"
-                value={formData.endereco}
-                onChange={handleInputChange}
-                placeholder="Rua, Avenida, etc."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Número (Opcional)</label>
-              <input
-                type="text"
-                name="numero"
-                value={formData.numero}
-                onChange={handleInputChange}
-                placeholder="123"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Row 5: Complemento, Bairro */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Complemento (Opcional)</label>
-              <input
-                type="text"
-                name="complemento"
-                value={formData.complemento}
-                onChange={handleInputChange}
-                placeholder="Apto 101, Bloco A, etc."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Bairro (Opcional)</label>
-              <input
-                type="text"
-                name="bairro"
-                value={formData.bairro}
-                onChange={handleInputChange}
-                placeholder="Bairro"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Row 6: Cidade, Estado */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Cidade (Opcional)</label>
-              <input
-                type="text"
-                name="cidade"
-                value={formData.cidade}
-                onChange={handleInputChange}
-                placeholder="São Paulo"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Estado (Opcional)</label>
-              <input
-                type="text"
-                name="estado"
-                value={formData.estado}
-                maxLength={2}
-                onChange={handleInputChange}
-                placeholder="SP"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
-              />
-            </div>
-
-            {/* Row 7: Detalhes (Full Width) */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Observações (Opcional)</label>
-              <textarea
-                name="detalhes"
-                value={formData.detalhes}
-                onChange={handleInputChange}
-                placeholder="Notas adicionais sobre o cliente..."
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Buttons */}
-            <div className="md:col-span-2 flex gap-3">
-              <button
-                type="submit"
-                className="flex-1 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition"
-              >
-                {editingId ? '✏️ Atualizar' : '➕ Criar'}
-              </button>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="flex-1 bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 font-medium transition"
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 border-b border-gray-300">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Nome</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Telefone</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">CPF/CNPJ</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Cidade</th>
-                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                      Nenhum cliente cadastrado
-                    </td>
-                  </tr>
-                ) : (
-                  customers.map((customer) => (
-                    <tr key={customer.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">{customer.name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{customer.telefone || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{customer.email || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{customer.cpf_cnpj || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{customer.cidade || '-'}</td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => handleEdit(customer)}
-                          className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 mr-2"
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(customer.id)}
-                          className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                        >
-                          🗑️ Deletar
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {/* Row 1: Nome, Telefone */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Nome *</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="Digite o nome completo"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Telefone * (xx) XXXX-XXXX</label>
+            <input
+              type="text"
+              name="telefone"
+              value={formData.telefone}
+              onChange={handleInputChange}
+              maxLength={14}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="(11) 9999-9999"
+            />
           </div>
         </div>
+
+        {/* Row 2: Email, Tipo Pessoa */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">E-mail (Opcional)</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="exemplo@email.com"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Tipo de Pessoa</label>
+            <select
+              name="tipo_pessoa"
+              value={formData.tipo_pessoa}
+              onChange={handleTipoPessoaChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+            >
+              <option value="fisica">Pessoa Física</option>
+              <option value="juridica">Pessoa Jurídica</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Row 3: CPF/CNPJ, CEP */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">
+              {formData.tipo_pessoa === 'fisica' ? 'CPF (Opcional) XXX.XXX.XXX-XX' : 'CNPJ (Opcional) XX.XXX.XXX/XXXX-XX'}
+            </label>
+            <input
+              type="text"
+              name="cpf_cnpj"
+              value={formData.cpf_cnpj}
+              onChange={handleInputChange}
+              maxLength={formData.tipo_pessoa === 'fisica' ? 14 : 18}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder={formData.tipo_pessoa === 'fisica' ? '000.000.000-00' : '00.000.000/0000-00'}
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">CEP (Opcional)</label>
+            <div className="relative">
+              <input
+                type="text"
+                name="cep"
+                value={formData.cep}
+                onChange={handleInputChange}
+                maxLength={9}
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                placeholder="00000-000"
+              />
+              {searchingCep && <span className="text-sm text-blue-500">⏳ Buscando...</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 4: Endereço, Número */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Endereço (Opcional)</label>
+            <input
+              type="text"
+              name="endereco"
+              value={formData.endereco}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="Rua, Avenida, etc."
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Número (Opcional)</label>
+            <input
+              type="text"
+              name="numero"
+              value={formData.numero}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="Ex: 123"
+            />
+          </div>
+        </div>
+
+        {/* Row 5: Complemento, Bairro */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Complemento (Opcional)</label>
+            <input
+              type="text"
+              name="complemento"
+              value={formData.complemento}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="Apto, sala, etc."
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Bairro (Opcional)</label>
+            <input
+              type="text"
+              name="bairro"
+              value={formData.bairro}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="Nome do bairro"
+            />
+          </div>
+        </div>
+
+        {/* Row 6: Cidade, Estado */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Cidade (Opcional)</label>
+            <input
+              type="text"
+              name="cidade"
+              value={formData.cidade}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+              placeholder="Nome da cidade"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Estado (Opcional)</label>
+            <input
+              type="text"
+              name="estado"
+              value={formData.estado}
+              onChange={handleInputChange}
+              maxLength={2}
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500 uppercase"
+              placeholder="SP"
+            />
+          </div>
+        </div>
+
+        {/* Row 7: Observações (Full Width) */}
+        <div className="mb-6">
+          <label className="block text-gray-700 font-semibold mb-2">Observações (Opcional)</label>
+          <textarea
+            name="detalhes"
+            value={formData.detalhes}
+            onChange={handleInputChange}
+            rows={4}
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+            placeholder="Anotações sobre o cliente..."
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-semibold"
+          >
+            {editingId ? '✏️ Atualizar' : '➕ Criar'}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600 font-semibold"
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      </form>
+
+      {/* Table */}
+      <div className="bg-white rounded shadow-md overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead className="bg-gray-200">
+            <tr>
+              <th className="border border-gray-300 px-4 py-2 text-left">Nome</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Telefone</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Email</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">CPF/CNPJ</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Cidade</th>
+              <th className="border border-gray-300 px-4 py-2 text-center">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-8 text-gray-500">
+                  Nenhum cliente cadastrado
+                </td>
+              </tr>
+            ) : (
+              customers.map((customer) => (
+                <tr key={customer.id} className="hover:bg-gray-100">
+                  <td className="border border-gray-300 px-4 py-2">{customer.name}</td>
+                  <td className="border border-gray-300 px-4 py-2">{customer.telefone || '-'}</td>
+                  <td className="border border-gray-300 px-4 py-2">{customer.email || '-'}</td>
+                  <td className="border border-gray-300 px-4 py-2">{customer.cpf_cnpj || '-'}</td>
+                  <td className="border border-gray-300 px-4 py-2">{customer.cidade || '-'}</td>
+                  <td className="border border-gray-300 px-4 py-2 text-center">
+                    <button
+                      onClick={() => handleEdit(customer)}
+                      className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 mr-2"
+                    >
+                      ✏️ Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(customer.id)}
+                      className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                    >
+                      🗑️ Deletar
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
