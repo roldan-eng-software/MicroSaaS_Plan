@@ -41,7 +41,7 @@ export function useEmailJS() {
         customer_email: customerEmail,
         customer_name: customerName,
         budget_title: budgetTitle,
-        budget_amount: budgetAmount.toFixed(2),
+        budget_amount: (budgetAmount || 0).toFixed(2),
         budget_id: budgetId,
         date: new Date().toLocaleDateString('pt-BR'),
         time: new Date().toLocaleTimeString('pt-BR'),

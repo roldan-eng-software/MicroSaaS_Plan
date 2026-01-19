@@ -151,21 +151,23 @@ class Budget(BaseModel):
 # ============================================
 
 def validate_cpf(cpf: str) -> bool:
-    """Valida CPF"""
+    # Remove máscara ANTES de validar
     cpf = cpf.replace(".", "").replace("-", "").replace(" ", "")
-    
     if len(cpf) != 11 or not cpf.isdigit():
         return False
     
+    # Resto da lógica permanece igual
     sum1 = sum(int(cpf[i]) * (10 - i) for i in range(9))
-    digit1 = 11 - (sum1 % 11)
-    digit1 = 0 if digit1 > 9 else digit1
+    digit1 = (11 - sum1) % 11
+    digit1 = 0 if digit1 == 10 else digit1
+    if digit1 != int(cpf[9]):
+        return False
     
     sum2 = sum(int(cpf[i]) * (11 - i) for i in range(10))
-    digit2 = 11 - (sum2 % 11)
-    digit2 = 0 if digit2 > 9 else digit2
-    
-    return cpf == str(digit1) and cpf == str(digit2)
+    digit2 = (11 - sum2) % 11
+    digit2 = 0 if digit2 == 10 else digit2
+    return digit2 == int(cpf[10])
+
 
 def validate_cnpj(cnpj: str) -> bool:
     """Valida CNPJ"""
@@ -331,20 +333,58 @@ async def list_budgets(request: Request):
 async def create_budget(budget: dict, request: Request):
     try:
         user_id = get_user_id(request)
+        print(f"Criando orçamento para user_id: {user_id}")
+        
+        # Gerar número automático ANTES de inserir
+        year = datetime.now().strftime("%Y")
+        # Buscar último número deste ano para este usuário
+        last_budget = supabase.table("budgets")\
+            .select("budget_number")\
+            .eq("user_id", user_id)\
+            .gte("budget_number", f"{year}-001")\
+            .order("budget_number", desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if last_budget.data:
+            last_num = int(last_budget.data[0]["budget_number"].split("-")[1])
+            new_num = last_num + 1
+        else:
+            new_num = 1
+        
+        budget_number = f"{year}-{new_num:03d}"  # 2026-001, 2026-002...
+        
+        print(f"Novo número gerado: {budget_number}")
+        
+        # Inserir com número automático
         response = supabase.table("budgets").insert({
             "title": budget["title"],
+            "budget_number": budget_number,  # ← NOVO
             "customer_id": budget.get("customer_id"),
+            "project_name": budget.get("project_name"),
+            "project_details": budget.get("project_details"),
+            "validity": budget.get("validity"),
+            "delivery_deadline": budget.get("delivery_deadline"),
             "subtotal_amount": budget["subtotal_amount"],
             "discount_percent": budget["discount_percent"],
+            "discount_amount": budget.get("discount_amount", 0),
+            "discount_type": budget.get("discount_type"),
             "final_amount": budget["final_amount"],
+            "payment_conditions": budget.get("payment_conditions"),
+            "payment_methods": budget.get("payment_methods"),
+            "drawing_url": budget.get("drawing_url"),
+            "observations": budget.get("observations"),
             "status": budget.get("status", "draft"),
-            "user_id": user_id,
+            "user_id": user_id
         }).execute()
+        
+        print(f"Orçamento criado: {budget_number}")
         return response.data if response.data else budget
-    except HTTPException:
-        raise
+        
     except Exception as e:
+        print(f"Erro ao criar orçamento: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.put("/api/budgets/{budget_id}")
 async def update_budget(budget_id: str, budget: dict, request: Request):

@@ -45,14 +45,15 @@ export default function Customers() {
 
   // ==================== FUNÇÕES DE MÁSCARA ====================
 
-  // Máscara para Telefone: (xx) XXXX-XXXX
-  const formatPhoneNumber = (value: string): string => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length === 0) return '';
-    if (cleaned.length <= 2) return `(${cleaned}`;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
-    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6, 10)}`;
-  };
+// Máscara para Telefone: (XX) XXXXX-XXXX
+const formatPhoneNumber = (value: string): string => {
+  const cleaned = value.replace(/\D/g, '');
+  if (cleaned.length === 0) return '';
+  if (cleaned.length <= 2) return cleaned;
+  if (cleaned.length <= 7) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+  return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+};
+
 
   // Máscara para CPF: XXX.XXX.XXX-XX
   const formatCPF = (value: string): string => {
@@ -390,16 +391,20 @@ export default function Customers() {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-semibold mb-2">Telefone * (xx) XXXX-XXXX</label>
-            <input
-              type="text"
-              name="telefone"
-              value={formData.telefone}
-              onChange={handleInputChange}
-              maxLength={14}
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-              placeholder="(11) 9999-9999"
-            />
+          <label className="block text-gray-700 font-semibold mb-2">
+  Telefone (XX) XXXXX-XXXX
+</label>
+
+            <input 
+  type="text" 
+  name="telefone" 
+  value={formData.telefone}
+  onChange={handleInputChange}
+  maxLength={15}  // (11) 99999-9999 = 15 chars
+  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+  placeholder="(11) 99999-9999"
+/>
+
           </div>
         </div>
 
