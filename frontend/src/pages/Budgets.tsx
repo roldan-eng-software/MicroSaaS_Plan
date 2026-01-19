@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useBudgets } from '../hooks/useBudgets';
 import { useCustomers } from '../hooks/useCustomers';
+import { useToast } from '../components/Toast';
 
 interface FormDataType {
   title: string;
@@ -54,6 +55,7 @@ const paymentMethodOptions = [
 export default function Budgets() {
   const { budgets, createBudget, updateBudget, deleteBudget, loading, error } = useBudgets();
   const { customers } = useCustomers();
+  const toast = useToast();
   const [formData, setFormData] = useState<FormDataType>(initialFormData);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState('');
@@ -291,6 +293,36 @@ export default function Budgets() {
       }
     }
   };
+
+  const handleSendEmail = async (budget: any) => {
+    if (window.confirm(`Tem certeza que deseja enviar o orçamento "${budget.title}" por e-mail?`)) {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          throw new Error('Token não encontrado');
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/budgets/${budget.id}/send-email`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Erro ao enviar e-mail');
+        }
+
+        toast.success('E-mail enviado com sucesso!');
+      } catch (err) {
+        console.error('Erro ao enviar e-mail:', err);
+        toast.error(`Erro ao enviar e-mail: ${err.message}`);
+      }
+    }
+  };
+
 
   if (loading) return <div className="p-4 text-center">Carregando...</div>;
 
@@ -640,6 +672,18 @@ export default function Budgets() {
                     </span>
                   </td>
                   <td className="border border-gray-300 px-4 py-2 text-center">
+                  <button
+                    onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL}/api/budgets/${budget.id}/pdf`, '_blank')}
+                    className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 mr-2"
+                    >
+                    📄 PDF
+                    </button>
+                    <button
+                    onClick={() => handleSendEmail(budget)}
+                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 mr-2"
+                    >
+                    ✉️ E-mail
+                    </button>
                     <button
                       onClick={() => handleEdit(budget)}
                       className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 mr-2"

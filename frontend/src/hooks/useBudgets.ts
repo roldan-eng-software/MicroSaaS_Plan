@@ -78,24 +78,6 @@ export function useBudgets() {
       setBudgets([...budgets, newBudget]);
       toast.success(`✅ Orçamento "${budget.project_name || budget.title}" criado com sucesso!`);
 
-      // ✅ Enviar email de confirmação
-      if (budget.customer_email && budget.customer_name) {
-        try {
-          await sendBudgetConfirmationEmail(
-            budget.customer_email,
-            budget.customer_name,
-            budget.project_name || budget.title,
-            newBudget.final_amount,
-            newBudget.id
-          );
-          toast.success('📧 Email de confirmação enviado!');
-          console.log('Email de confirmação enviado com sucesso!');
-        } catch (emailError: any) {
-          console.error('Erro ao enviar email:', emailError);
-          toast.warning('⚠️ Orçamento criado, mas erro ao enviar email');
-        }
-      }
-
       return newBudget;
     } catch (err: any) {
       const errorMsg = err.message || 'Erro ao criar orçamento';

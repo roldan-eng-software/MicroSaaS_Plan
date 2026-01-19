@@ -1,170 +1,87 @@
-# MicroSaaS Plan — Orçamento e Comunicação
+# Marcenaria Business Management
 
-Este repositório contém um projeto full-stack pronto para evoluir como um microSaaS focado em: gestão de clientes, criação/gestão de orçamentos (propostas), e comunicação transacional (e-mail e WhatsApp), com exportação em PDF/planilha. A stack é moderna, com frontend React + Vite + Tailwind e backend em Python, além de integrações com serviços externos (e.g., EmailJS, WhatsApp API/Deep Links) e Supabase para autenticação.
+This is a full-stack web application designed to help a small woodworking business manage its customers and budgets. It provides a simple and efficient way to handle client information and create, track, and manage budgets.
 
+## Features
 
-## Objetivo do produto (visão MicroSaaS)
+- **Customer Management:**
+  - Create, edit, and delete customer records.
+  - Store important customer information such as name, address, contact details, and CPF/CNPJ.
+  - View a list of all customers.
 
-- Resolver um problema específico: centralizar captação de clientes, geração de orçamentos e envio/seguimento via e-mail/WhatsApp.
-- Operar com baixo custo e alta automação: autenticação gerenciada (Supabase), envio de comunicação por serviços de terceiros e geração automática de documentos.
-- Monetização simples: planos por número de clientes, orçamentos/mês, e recursos premium (branding, templates customizados, exportações avançadas).
-- Pronto para escalar: frontend desacoplado, backend stateless, serviços integrados e pipelines de deploy documentados.
+- **Budget Management:**
+  - Create, edit, and delete budgets.
+  - Associate budgets with customers.
+  - Automatically calculate the final budget amount based on subtotal and discount.
+  - Manage budget status (e.g., draft, approved, rejected).
 
+- **PDF and Email:**
+  - Generate a PDF of a budget.
+  - Send a budget to a customer via email.
 
-## Visão geral da arquitetura
+- **User Authentication:**
+  - Secure login system to protect business data.
 
-- frontend/ (React + Vite + TypeScript + TailwindCSS)
-  - UI, rotas e lógica de experiência do usuário.
-  - Integração com Supabase para autenticação e com o backend via REST.
-  - Hooks para encapsular chamadas a APIs e serviços externos.
-- backend/ (Python)
-  - Endpoints da API, regras de negócio, geração de PDFs/exports.
-  - Serviços externos: e-mail e WhatsApp.
-  - Camada de acesso/armazenamento (database.py) — adaptável a Postgres/Supabase.
-- Deploy e operação
-  - Deploys independentes (frontend estático, backend em container ou PaaS).
-  - Logs centralizados, métricas simples e guia de troubleshooting.
+## Technologies Used
 
+- **Backend:**
+  - **FastAPI:** A modern, fast (high-performance) web framework for building APIs with Python 3.7+.
+  - **Supabase:** An open source Firebase alternative for the database and authentication.
+  - **Python:** The programming language used for the backend.
 
-## Estrutura do repositório
+- **Frontend:**
+  - **React:** A JavaScript library for building user interfaces.
+  - **TypeScript:** A typed superset of JavaScript that compiles to plain JavaScript.
+  - **Vite:** A fast build tool for modern web development.
+  - **Tailwind CSS:** A utility-first CSS framework for rapid UI development.
 
-- backend/
-  - main.py — Ponto de entrada do servidor/backend (endpoints REST e orquestração de serviços).
-  - database.py — Abstração de persistência para clientes, orçamentos e configurações.
-  - email_service.py — Camada de integração para envio de e-mails (ex.: EmailJS/SMTP/API).
-  - whatsapp_service.py — Envio/links de WhatsApp (deep links ou API oficial/terceiros).
-  - pdf_generator.py — Geração de PDFs de orçamentos/propostas.
-  - export_generator.py — Geração de exports (CSV/XLSX) para relatórios.
-  - requirements.txt — Dependências Python do backend.
-  - package.json, bun.lock — Utilidades de automação (scripts) quando executado com Bun/Node (opcional).
-- frontend/
-  - src/
-    - App.tsx, main.tsx — Bootstrapping da aplicação React.
-    - pages/
-      - Dashboard.tsx — Visão geral (KPIs, últimos orçamentos/clientes).
-      - Customers.tsx — CRUD de clientes.
-      - Budgets.tsx — CRUD e visualização de orçamentos.
-      - Settings.tsx — Configurações (integrações, branding, templates).
-      - Login.tsx — Fluxo de autenticação.
-    - components/
-      - Toast.tsx — Notificações de feedback.
-      - ErrorBoundary.tsx — Tratamento global de erros na UI.
-    - hooks/
-      - useAuth.ts — Login/logout/estado do usuário (Supabase).
-      - useCustomers.ts — Acesso aos endpoints de clientes.
-      - useBudgets.ts — Acesso aos endpoints de orçamentos.
-      - useEmailJS.ts — Envio de e-mails via EmailJS.
-      - useWhatsApp.ts — Envio/links de WhatsApp.
-    - lib/
-      - api.ts — Cliente HTTP para o backend (baseURL, interceptors, etc.).
-      - supabaseClient.ts — Instância e utilitários do Supabase.
-  - index.html, estilos (Tailwind), configurações TS/ESLint/Vite.
-- deploy_guide.md — Passo a passo para publicar o frontend e o backend.
-- troubleshooting_guide.md — Erros comuns e como resolver.
-- project_readme.md — Anotações adicionais do projeto.
+## Getting Started
 
+### Prerequisites
 
-## Fluxos principais
+- [Node.js](https://nodejs.org/) (which includes npm)
+- [Python](https://www.python.org/) 3.7+ and `pip`
+- [Git](https://git-scm.com/)
 
-1) Autenticação
-- O frontend usa Supabase (lib/supabaseClient.ts e hooks/useAuth.ts) para login e estado do usuário.
-- Tokens podem ser enviados ao backend em cabeçalhos para autorização.
+### Installation
 
-2) Gestão de Clientes
-- pages/Customers.tsx e hooks/useCustomers.ts consomem endpoints do backend.
-- database.py mantém o modelo e persistência (ajuste para seu banco de dados).
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/your-username/marcenaria-business-management.git
+   cd marcenaria-business-management
+   ```
+2. **Backend Setup:**
+- Navigate to the backend directory:
+```bash
+cd backend
+```
+- Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
+- Create a .env file and add your Supabase credentials:
+```bash
+cp .env.example .env
+```
+- Run the backend server:
+```bash
+uvicorn main:app --reload
+```
+3. **Frontend Setup:**
+- Navigate to the frontend directory:
+```bash
+cd frontend
+```
+- Install JavaScript dependencies:
+```bash
+npm install
+```
+- Run the frontend development server:
+```bash
+npm run dev
+```
+## Contributing
+Contributions are welcome! If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request.
 
-3) Orçamentos/Propostas
-- pages/Budgets.tsx e hooks/useBudgets.ts para listar/criar/editar orçamentos.
-- pdf_generator.py gera documentos imprimíveis.
-- export_generator.py provê CSV/XLSX para relatórios e análise.
-
-4) Comunicação
-- email_service.py e hooks/useEmailJS.ts para envio de e-mails transacionais.
-- whatsapp_service.py e hooks/useWhatsApp.ts para disparos/links de WhatsApp (ex.: envio do orçamento para o cliente).
-
-
-## Como executar localmente
-
-Pré-requisitos
-- Node 18+ e pnpm/npm/yarn ou Bun (para o frontend).
-- Python 3.10+ e virtualenv/venv (para o backend).
-- Conta e projeto no Supabase (para autenticação) e chaves/configs de e-mail/WhatsApp.
-
-Backend
-1. cd backend
-2. python -m venv .venv && source .venv/bin/activate
-3. pip install -r requirements.txt
-4. Configure variáveis de ambiente (exemplos):
-   - DATABASE_URL=... (Postgres/Supabase)
-   - SUPABASE_JWT_SECRET=...
-   - EMAILJS_SERVICE_ID=..., EMAILJS_TEMPLATE_ID=..., EMAILJS_PUBLIC_KEY=...
-   - WHATSAPP_API_TOKEN=... (se usar API) ou apenas deep links
-5. python main.py (ou uvicorn/fastapi se aplicável, conforme a implementação do main.py)
-
-Frontend
-1. cd frontend
-2. pnpm install (ou npm install / yarn) — alternativamente bun install
-3. Defina variáveis em .env.local, por exemplo:
-   - VITE_API_BASE_URL=http://localhost:8000
-   - VITE_SUPABASE_URL=...
-   - VITE_SUPABASE_ANON_KEY=...
-4. pnpm dev (ou npm run dev / bun dev)
-
-
-## Configuração e ambientes
-
-- .env/.env.local não estão versionados; use variáveis por ambiente (dev, staging, prod).
-- Ajuste CORS no backend para o domínio do frontend.
-- Defina regras RLS (Row Level Security) no Supabase quando necessário.
-
-
-## Boas práticas e padrões adotados
-
-- Separação de responsabilidades: páginas, componentes, hooks e lib no frontend; serviços e camadas no backend.
-- Tratamento de erros com ErrorBoundary e Toasts.
-- Hooks para encapsular integrações e reduzir repetição de código.
-- Geração de artefatos (PDF/CSV) isolada em módulos específicos.
-- Scripts de deploy e documentação para reduzir tempo de setup.
-
-
-## Roadmap sugerido para virar MicroSaaS
-
-MVP
-- Autenticação, CRUD de clientes e orçamentos, exportação e envio por e-mail/WhatsApp.
-- Template PDF simples com branding básico.
-
-V1
-- Planos de assinatura (tiers) e limites por plano.
-- Webhooks de eventos (orçamento visualizado, assinado, expirado).
-- Dashboard com métricas de conversão.
-
-V2
-- Templates de orçamento customizáveis por usuário.
-- Assinatura eletrônica (link de aceite) e trilha de auditoria.
-- Integração com gateways de pagamento (checkout) para receber sinal/entrada.
-
-
-## Testes e qualidade
-
-- Frontend: testes unitários de hooks e componentes críticos; linters (ESLint) e TypeScript estrito.
-- Backend: testes unitários/integração para serviços (PDF, e-mail, WhatsApp) e endpoints.
-- CI: pipeline com lint + testes + build.
-
-
-## Deploy e operação
-
-- Frontend: hospedagem estática (Vercel/Netlify/Cloudflare Pages). Variáveis VITE_* configuradas no provedor.
-- Backend: PaaS/container (Railway/Fly.io/Render/AWS). Configure variáveis de ambiente e persistência.
-- Observabilidade: logs estruturados e alertas básicos por falhas de envio/geração.
-
-
-## Contribuição
-
-- Crie branches por feature, commits descritivos e PRs pequenos.
-- Siga os padrões de código e atualize a documentação ao alterar fluxos.
-
-
-## Licença
-
-Defina uma licença antes da distribuição pública (MIT, Apache 2.0, etc.).
+## License
+This project is licensed under the MIT License. See the LICENSE file for details.

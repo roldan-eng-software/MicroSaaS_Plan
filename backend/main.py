@@ -12,6 +12,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from pdf_generator import generate_budget_pdf
+from email_service import send_budget_confirmation_email
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -260,6 +261,57 @@ async def list_budgets(user_id: str = Depends(get_current_user_id)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail="Erro interno ao processar a solicitação.")
+
+@app.post("/api/budgets/{budget_id}/send-email")
+async def send_budget_email(budget_id: str, user_id: str = Depends(get_current_user_id)):
+    try:
+        # 1. Buscar o orçamento
+        budget_response = supabase.table("budgets").select(
+            "id, title, final_amount, customer_id"
+        ).eq("id", budget_id).eq("user_id", user_id).execute()
+
+        if not budget_response.data:
+            raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+
+        budget = budget_response.data[0]
+
+        # 2. Buscar o cliente
+        customer_response = supabase.table("customers").select(
+            "id, name, email"
+        ).eq("id", budget["customer_id"]).execute()
+
+        if not customer_response.data:
+            raise HTTPException(status_code=404, detail="Cliente associado não encontrado")
+
+        customer = customer_response.data[0]
+        customer_email = customer.get("email")
+        customer_name = customer.get("name")
+
+        # 3. Validar se o cliente tem email
+        if not customer_email:
+            raise HTTPException(status_code=400, detail="Cliente não possui um endereço de e-mail cadastrado.")
+
+        # 4. Enviar o email
+        email_result = await send_budget_confirmation_email(
+            customer_email=customer_email,
+            customer_name=customer_name,
+            budget_title=budget["title"],
+            budget_amount=budget["final_amount"],
+            budget_id=budget["id"]
+        )
+
+        if email_result:
+            return {"message": f"E-mail enviado com sucesso para {customer_email}"}
+        else:
+            raise HTTPException(status_code=500, detail="Falha ao enviar o e-mail.")
+
+    except HTTPException:
+        # Re-raise a exceção HTTP para que o FastAPI a manipule
+        raise
+    except Exception as e:
+        # Captura outras exceções e retorna um erro 500 genérico
+        print(f"Erro inesperado ao enviar e-mail: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno do servidor ao tentar enviar o e-mail.")
 
 @app.post("/api/budgets")
 async def create_budget(budget: Budget, user_id: str = Depends(get_current_user_id)):
